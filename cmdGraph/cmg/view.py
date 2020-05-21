@@ -257,15 +257,14 @@ class StickView(_View):
         # uses in the expected manner. As a result we prefer to use either float
         # or int values, and parse arrays, tuples etc. as multiple arguments, or
         # booleans as strings.
-
     # Axes methods
     def _set_xrange(self, inp):
         """Set the x range of axis. If an asteriks is detected in place of a
         float for either value then that bound is autoscaled.
         
         """
-        self._prop_xrange = inp
-        inp = inp.split()
+        inp = inp.split() if type(inp) is str else inp
+        self._prop_xrange = "{} {}".format(*inp)
         if any([i == '*' for i in inp]):
             self.ax.autoscale(enable=True, axis='x')
         if inp[0] != '*':
@@ -277,18 +276,14 @@ class StickView(_View):
         float for either value then that bound is autoscaled.
         
         """
-        self._prop_yrange = inp
-        ymin, ymax = inp.split()
-        ylow = 0
-        self.ax.autoscale(enable=True, axis='y')
-        if ymin == '*':
-            for plot in self.plots:
-                ylow = plot.data.ybounds[0] if ylow > plot.data.ybounds[0] else ylow
-            self.ax.set_ylim(ymin=.1*ylow)
-        else:
-            self.ax.set_ylim(ymix=float(ymax))
-        if ymax != '*':
-            self.ax.set_ylim(ymax=float(ymax))
+        inp = inp.split() if type(inp) is str else inp
+        self._prop_yrange = "{} {}".format(*inp)
+        if any([i == '*' for i in inp]):
+            self.ax.autoscale(enable=True, axis='y')
+        if inp[0] != '*':
+            self.ax.set_ylim(ymin=float(inp[0]))
+        if inp[1] != '*':
+            self.ax.set_ylim(ymax=float(inp[1]))
 
     # View Plot objects
     class Plot(_View.Plot):

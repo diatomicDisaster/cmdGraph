@@ -5,8 +5,8 @@ import matplotlib #urm... seems kinda obvious
 import matplotlib.pyplot as plt #convenience
 import sys
 
-from cmg.data import *
-from cmg.view import *
+from .data import *
+from .view import *
 
 ### User interface object
 
