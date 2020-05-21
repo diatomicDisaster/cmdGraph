@@ -5,233 +5,6 @@ import matplotlib #urm... seems kinda obvious
 import matplotlib.pyplot as plt #convenience
 import sys
 
-_small_ = 1e-300
-
-welcome_message = """
-  ==================================================================
-                                __        _           
-                      _ __  _| / _  __ _ |_)|_        
-                     (_ |||(_| \__| | (_||  | |       
-                                                     
-  ==================================================================
-                        W. Somogyi (2020)          
-  
-  Welcome to cmdGraph, an interactive command-based Python plotter!
-  
-  Just a few notes before you begin:
-    - This is very much not a real proper program. I accept no
-      liability for any harm (physical, financial, or otherwise), 
-      that may come as a result of its use.
-    - Console commands are keywords entered directly into the prompt.
-      - For a list of console commands, type 'help' or for details
-        of each command 'help <cmd>'. 
-    - Figure layout commands have '-' or '--' prefixes. 
-      - For a list of figure layout arguments in the current view, 
-        type '-h' or '--help'.
-  
-  Happy plotting!
-"""
-
-### User interface object
-
-class cmgPrompt(cmd.Cmd):
-    """The cmdGraph user command prompt interface object.
-
-    The cmdPrompt controls the operation of the program for a given figure.
-    In normal operation, with a single figure instance, this amounts to the 
-    entire program. 
-    
-    The class defines the program commands, reads/writes data files, and owns
-    and passes commands to the current View instance.
-    """
-    prompt = '> ' #set left hand icon for prompt
-
-    def __init__(self, mode='launch', **kwargs):
-        """Initialise a new prompt mode. 
-        
-        Creates a figure and sets the View object and Data type specified by the 
-        'mode' keyword argument. The default value is 'launch', which is used 
-        when the program starts to call the Cmd superclass __init__ function. 
-        Other keyword arguments are passed to the Cmd superclass.
-        """
-        self._modes = ['graph', 'stick'] #define available modes
-        if mode == 'launch': #for first __init__
-            cmd.Cmd.__init__(self, **kwargs)
-            mode = 'graph' #default to graph
-        if mode in self._modes:
-            self.mode = mode
-            self.fig = plt.figure()
-            self._single = False
-            if mode == 'graph':
-                self._DataType = xyData #set the data mode
-                self._View = GraphView(self.fig) #set the view mode
-            elif mode == 'stick':
-                self._DataType = stickData
-                self._View = StickView(self.fig)
-        else:
-            print("Mode not defined.")
-    def preloop(self):
-        """Turn matplotlib interactive mode on before opening prompt."""
-        plt.ion()
-    def postloop(self):
-        """Turn matplotlib interactive mode off after closing prompt."""
-        plt.ioff()
-    def onecmd(self, line):
-        """Overwritten from default cmd.onecmd method to prevent exiting command
-        loop when an error is raised.
-
-        """
-        cmd, arg, line = self.parseline(line)
-        if not line:
-            return self.emptyline()
-        if cmd is None:
-            return self.default(line)
-        self.lastcmd = line
-        if line == 'EOF' :
-            self.lastcmd = ''
-        if cmd == '':
-            return self.default(line)
-        else:
-            try:
-                func = getattr(self, 'do_' + cmd)
-            except AttributeError:
-                return self.default(line)
-            try: #only try to execute
-                f = func(arg)
-            except:
-                print("Command failed, check for typos.")
-                print("Error type: ", sys.exc_info()[0]) #basic error message
-                f = None
-            return f
-
-    ## Command methods ##
-    def default(self, line):
-        """Pass input string to the View instance's argparse parser if the string
-        is unrecognised as a cmdPrompt command. Check if argparse has successfully
-        parsed and warn if not.
-        
-        """
-        argIn = line.split(' ') #argparse expects list of arguments
-        hasParsed = self._View.parse(argIn)
-        if not hasParsed: #unrecognised argparse argument
-            print("Unrecognised argument.")
-        else:
-            self._changed = True
-
-    def do_exit(self, inp): #not working
-        """Checks if in single plot mode, if so makes all View plots live,
-        and exits single mode. Otherwise, asks before exiting program.
-        
-        """
-        if self._single:
-            self._View.livePlots = self._View.plots
-            self._single = False
-            print("Leaving single plot mode...")
-            return False
-        else:
-            yn = 'm'
-            while yn not in ['Y', 'y', 'N', 'n']:
-                yn = input("Exit the program? [y/n] ")
-            if yn in ['N', 'n']:
-                print("Exit cancelled.")
-                return False
-            elif yn in ['Y', 'y']:
-                print("Exiting cmdGraph...")
-                return True          
-    def help_exit(self):
-        print("usage: exit\n    Exit current environment, or if no environment, exit program.")
-
-    def do_adat(self, inp):
-        """Calls the read file method to initialise a Data instance for the input
-        file using the active data mode. Requires that self._Data has been set 
-        to a valid Data class by __init__. Then adds Data to the View instance as
-        as plot.
-        
-        """
-        for inFile in inp.split(): #assume spaces in input delimit files
-            _Data = self._DataType(inFile).read_file()
-            self._View.add_plot(_Data)
-    def help_adat(self):
-        print("usage: adat <file1> <file2> ... \n    Add lines(s) to figure from file(s). ")
-
-    def do_ddat(self, inp):
-        """Remove a data file from the figure. Not working yet, placeholder only.
-        
-        """
-        for p, plot in enumerate(self._View.plots):
-            if plot._Data.fName == inp:
-                self._View.plots.remove(plot)
-    def help_ddat(self):
-        print("usage: ddat <file>\n    Placeholder.")
-
-    def do_single(self, inp):
-        """Replace live plots in View instance with a single plot, allows for
-        tweaking of individual Plot instances within a figure without having to
-        pass arguments for every other instance.
-        
-        Requires self.do_exit() call to terminate and return all plots to View
-        live plots.
-        
-        """
-        for plot in self._View.plots:
-            _Data = plot._Data
-            if _Data.fName == inp:
-                self._View.livePlots = [plot] #single live plot
-                self._single = True #enter single mode
-                print("Entering single plot mode for '{}'".format(_Data.fName))
-                break
-        if not self._single:
-            print("Plot file not found.")
-    def help_single(self):
-        print("usage: single <file>\n    Switch to single dataset edit mode.")
-
-    def do_mode(self, inp):
-        """Set the current plotting mode. Calls the cmdPrompt __init__ method
-        to initialise a new View instance and change the data mode. Closes current
-        figure (without saving) and opens new figure for the input View mode.
-        
-        """
-        if inp in self._modes:
-            plt.close(fig='all')
-            self.__init__(mode=inp)
-        else:
-            print("Mode not defined.")
-    def help_mode(self):
-        print("usage: mode <mode>\n    Change figure mode (graph, stick)")
-
-    def do_save(self, inp):
-        """Save configuration for current figure in a native cmdGraph 'save file'.
-        This is done by initialising an instance o the cmdGraph data class and
-        calling it's write file method for the current View instance.
-        
-        """
-        cmgData(inp).write_file(self._View)
-        self._changed = False
-    def help_save(self):
-        print("usage: save <filename>\n    Save the current figure as <filename>.cmg, allows figures to be reload after exit.")
-
-    def do_load(self, inp):
-        """Load a View instance from a cmdGraph 'save file' by initialising a
-        cmdGraph data instance and calling it's read file method. Then pass
-        each item in the data attribute as though it were a user command.
-        
-        """
-        buff = cmgData(inp).read_file()
-        for cmdString in buff.dat:
-            self.onecmd(cmdString)
-        if self._single:
-            self.do_exit('')
-    def help_load(self):
-        print("usage: load <filename>.cmg\n    Load figure from cmdGraph file.")
-
-    def do_print(self, inp):
-        """Rudimentary print figure to file. Redirects to plt.savefig(), the
-        filetpye is automatically chosen from the suffix used in the input
-        string, i.e '.pdf', '.jpg'.
-        
-        """
-        plt.savefig(inp)
-
 
 ### View Classes
 
@@ -370,8 +143,8 @@ class GraphView(_View):
         float for either value then that bound is autoscaled.
         
         """
-        self._prop_xrange = inp
-        inp = inp.split()
+        inp = inp.split() if type(inp) is str else inp
+        self._prop_xrange = "{} {}".format(*inp)
         if any([i == '*' for i in inp]):
             self.ax.autoscale(enable=True, axis='x')
         if inp[0] != '*':
@@ -383,8 +156,8 @@ class GraphView(_View):
         float for either value then that bound is autoscaled.
         
         """
-        self._prop_yrange = inp
-        inp = inp.split()
+        inp = inp.split() if type(inp) is str else inp
+        self._prop_yrange = "{} {}".format(*inp)
         if any([i == '*' for i in inp]):
             self.ax.autoscale(enable=True, axis='y')
         if inp[0] != '*':
@@ -445,6 +218,11 @@ class GraphView(_View):
                 plt.setp(self._plot, label=inp)
             plt.legend()
 
+    def add_plot(self, data):
+        _View.add_plot(self, data)
+        self._set_xrange('* *')
+        self._set_yrange('* *')
+
 class StickView(_View):
     """Simple x-y data View class.
     
@@ -504,7 +282,7 @@ class StickView(_View):
         ylow = 0
         self.ax.autoscale(enable=True, axis='y')
         if ymin == '*':
-            for plot in StickView.plots:
+            for plot in self.plots:
                 ylow = plot.data.ybounds[0] if ylow > plot.data.ybounds[0] else ylow
             self.ax.set_ylim(ymin=.1*ylow)
         else:
@@ -533,8 +311,6 @@ class StickView(_View):
             sticks = self._Data.dat
             self._plot = ax.add_collection(
                 matplotlib.collections.LineCollection(sticks))
-            StickView._set_xrange(self, '* *')
-            StickView._set_yrange(self, '* *')
         # Line methods
         def _set_linewidth(self, inp):
             """Set line width of plot."""
@@ -555,120 +331,3 @@ class StickView(_View):
                 plt.setp(self._plot, label=inp)
             plt.legend()
 
-
-### Data Classes 
-
-class _Data:
-    def __init__(self, filename):
-        self.fName = filename
-
-class xyData(_Data):
-    """Data format for two column x, y data files where each row is a data point.
-    assumes no column headers. Currently just a skeleton class for basic operation."""
-    def read_file(self):
-        """Read x, y columns from file"""
-        with open(self.fName, 'r') as f:
-            datLines = []
-            for l in f:
-                line = l.strip().split()
-                datLines.append(line)
-            self.dat = np.array(datLines, dtype=float).T
-        return self
-
-class stickData(_Data):
-    def read_file(self):
-        with open(self.fName, 'r') as f:
-            datLines = []
-            ymin = ymax = 0
-            for l in f:
-                x, y = l.strip().split()
-                datLines.append([[x, _small_], [x, y]])
-                ymin = float(y) if (float(y) < ymin) else ymin
-                ymax = float(y) if (float(y) > ymax) else ymax
-            self.dat = np.array(datLines, dtype=float)
-            self.ybounds = [float(ymin), (ymax)]
-        return self
-
-class cmgData(_Data):
-    """Data format for internal cmdGraph data files. This allows configurations
-    to be saved so that they can be transferred and reloaded after the program
-    exits.
-
-    The format of cmdGraph save files is simply a list of commands to be executed 
-    to reproduce the configuration from the input data files. A standard save file
-    would look like:
-
-    | ---cmdGraph---                    <- file header confirms cmdGraph format
-    | mode graph                        <- select view mode
-    | adat file1.csv file2.csv          <- load data files
-    | --xrange 0 10                     <- axes arguments
-    | --yrange -1 1                     <-
-    | single file1.csv                  <- enter single mode for first file
-    | --linewidth 2.0                   <- plot arguments of first file
-    | --label The#first#data
-    | single file2.csv                  <- enter single mode for second file
-    | --label The#second#data           <- plot arguments of second file
-    | --linecolour red
-
-    """
-    def write_file(self, fName, view):
-        """Write the View instance to a '.cmg' file with provided name. 
-        
-        Tries to retrieve corresponding '_prop_' attribute for every argument in
-        the View instance's list of argument names. First at the level of View
-        attributes for axes arguments, or else at the level of Plot attributes
-        for plot arguments.
-
-        """
-
-        f = open(self.fName, 'w')
-        f.write("---cmdGraph---" + '\n')
-        f.write("mode " + view.mode + '\n')
-        f.write(("adat " + " {}"*len(_View.plots)
-            + '\n').format(*[P._Data.fName for P in _View.plots]))
-        _plotArgs = []
-        for argName in view.argNames:
-            try:
-                argVal = getattr(view, '_prop_' + argName)
-                argVal = str(argVal) if (type(argVal) is not str) else argVal
-                f.write('--' + argName + ' ' + argVal + '\n')
-            except:
-                _plotArgs.append(argName)
-        for plot in _View.plots:
-            f.write('single ' + plot._Data.fName + '\n')
-            for argName in _plotArgs:
-                try:
-                    argVal = getattr(plot, '_prop_' + argName)
-                    argVal = str(argVal) if (type(argVal) is not str) else argVal
-                    f.write('--' + argName + ' ' + argVal + '\n')
-                except:
-                    pass
-        f.close()
-
-    def read_file(self):
-        """Read a View instance from file and return the list of command strings 
-        to be executed in order to recover the figure.
-
-        """
-        with open(self.fName, 'r') as f:
-            datLines = []
-            start = False
-            for l, line in enumerate(f):
-                line = line.strip()
-                while not start:
-                    if line == '---cmdGraph---':
-                        start = True
-                        line = ''
-                    continue
-                if line == '':
-                    continue
-                else:
-                    datLines.append(line)
-        if not start:
-            print("Not recognised as a cmdGraph file.")
-        else:
-            self.dat = datLines
-        return self
-
-print(welcome_message) #print welcome message
-cmgPrompt(mode='launch').cmdloop() #run program
