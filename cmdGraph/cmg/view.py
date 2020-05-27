@@ -11,15 +11,15 @@ import sys
 class _View:
     """The superclass for View modes. 
     
-    Defines basic properties required for a View object to function within the 
+    Defines basic properties required for a View object to function within the
     program, but should always be expanded with custom methods.
 
     Every View instance has a Plot class. Instances of a Plot class are
     associated with a data file for the current View instance, and have a set
     of commands that can be passed by the user to edit their properties and call
-    methods. View instances also have an axes. 
+    methods. View instances also have an axes.
     
-    Currently axes are not defined as an inner class, but this might change if 
+    Currently axes are not defined as an inner class, but this might change if
     View modes are introduced with multiple axes.
     
     See existing subclasses for examples.
@@ -33,8 +33,11 @@ class _View:
         self.argNames  = []
         self.parser    = argparse.ArgumentParser(
             usage="Figure commands should have a '-' or '--' in front.\n"
-            "       Type '-h' for a list of figure commands available in the current mode."    
+            "       Type '-h' for a list of figure commands available in the current mode."
         )
+        self._add_arg('-xl', '--xlabel', nargs='+', type=str, metavar='str')
+        self._add_arg('-yl', '--ylabel', nargs='+', type=str, metavar='str')
+
     def parse(self, inp):
         """Method for parsing arguments using the parser defined for the future
         View subclass. Tries argument and if not parsed returns false to the
@@ -63,12 +66,11 @@ class _View:
         'add_argument' that forces default to SUPPRESS and adds the argument
         name to an internal list.
 
-        Every argument should have an associated 'self._set_<argument>' method, 
-        the first action of which should always be to set 'self._prop_<argument>' 
-        equal to the console input. Without '_prop_' attributes, the 
+        Every argument should have an associated 'self._set_<argument>' method,
+        the first action of which should always be to set 'self._prop_<argument>'
+        equal to the console input. Without '_prop_' attributes, the
         configuration cannot be saved, and without '_set_' methods the argument
         will not activate any change.
-        
         """
         self.parser.add_argument(*args, **kwargs, default=argparse.SUPPRESS)
         self.argNames.append(args[1].lstrip('--'))
@@ -76,13 +78,12 @@ class _View:
     class Plot:
         def __init__(self, data, ax):
             """Template class for the View subclass's Plot class. The Plot class
-            define the type of graph the user is plotting, and has associated
+            defines the type of graph the user is plotting, and has associated
             properties and methods. All plot instances should however have an
-            associated data object (data) and axes (ax). 
+            associated data object (data) and axes (ax).
             
             The __init__ function is called by the cmdPrompt adat method when
             a data file is added to the current View instance.
-            
             """
             self._Data = data
             self.ax  = ax
@@ -91,26 +92,34 @@ class _View:
         """Method for adding a Plot instance to the current View with data from
         a given Data object. Adds plot to list of plots in current View and resets
         live plots. Assumes plot is being added to current matplotlib axes.
-        
         """
         plot = self.Plot(data, plt.gca())
         self.plots.append(plot)
         self.livePlots = self.plots
-            
+
+    # def _set_xlabel(self, inp):
+    #     """Set x label for axis."""
+    #     self._prop_xlabel = inp
+    #     self.ax.set_xlabel(inp[0].replace('#', ' '))
+
+    # def _set_ylabel(self, inp):
+    #     """Set y label for axis."""
+    #     self._prop_ylabel = inp
+    #     self.ax.set_ylabel(inp[0].replace('#', ' '))
+
+
 class GraphView(_View):
     """Simple x-y data View class.
     
     The GraphView class is a simple View class for plotting x-y data points. It
     consists of a single axes, and can contain any number of xyData Plot objects.
     It is also the default View mode opened when the program starts.
-
     """
     def __init__(self, fig):
         """Add axes to the provided figure and set the view mode to 'graph'. The
         available arguments for the user in view mode are defined below, and each
         has a '_set_<argument>' method further down that is called when the
         argument is parsed.
-        
         """
         _View.__init__(self, figure=fig, mode='graph')
         self.ax = fig.add_subplot(111)
@@ -141,7 +150,6 @@ class GraphView(_View):
     def _set_xrange(self, inp):
         """Set the x range of axis. If an asteriks is detected in place of a
         float for either value then that bound is autoscaled.
-        
         """
         inp = inp.split() if type(inp) is str else inp
         self._prop_xrange = "{} {}".format(*inp)
@@ -154,7 +162,6 @@ class GraphView(_View):
     def _set_yrange(self, inp):
         """Set the y range of axis. If an asteriks is detected in place of a
         float for either value then that bound is autoscaled.
-        
         """
         inp = inp.split() if type(inp) is str else inp
         self._prop_yrange = "{} {}".format(*inp)
@@ -217,6 +224,14 @@ class GraphView(_View):
                 inp = inp.replace('#', ' ')
                 plt.setp(self._plot, label=inp)
             plt.legend()
+        def _set_xlabel(self, inp):
+            """Set x label for axis."""
+            self._prop_xlabel = inp
+            self.ax.set_xlabel(inp[0].replace('#', ' '))
+        def _set_ylabel(self, inp):
+            """Set y label for axis."""
+            self._prop_ylabel = inp
+            self.ax.set_ylabel(inp[0].replace('#', ' '))
 
     def add_plot(self, data):
         _View.add_plot(self, data)
@@ -229,7 +244,6 @@ class StickView(_View):
     The GraphView class is a simple View class for plotting x-y data points. It
     consists of a single axes, and can contain any number of xyData Plot objects.
     It is also the default View mode opened when the program starts.
-
     """
     def __init__(self, fig):
         """Add axes to the provided figure and set the view mode to 'graph'. The
@@ -261,7 +275,6 @@ class StickView(_View):
     def _set_xrange(self, inp):
         """Set the x range of axis. If an asteriks is detected in place of a
         float for either value then that bound is autoscaled.
-        
         """
         inp = inp.split() if type(inp) is str else inp
         self._prop_xrange = "{} {}".format(*inp)
@@ -274,7 +287,6 @@ class StickView(_View):
     def _set_yrange(self, inp):
         """Set the y range of axis. If an asteriks is detected in place of a
         float for either value then that bound is autoscaled.
-        
         """
         inp = inp.split() if type(inp) is str else inp
         self._prop_yrange = "{} {}".format(*inp)
@@ -289,7 +301,6 @@ class StickView(_View):
     class Plot(_View.Plot):
         """The Plot object for the GraphView class. Called by cmdPrompt to
         initialise a plot object in the current View instance for a new data file.
-        
         """
         def __init__(self, data, ax):
             """Add plot points from Data object to provided axes from the parent 
@@ -300,7 +311,6 @@ class StickView(_View):
             that act on plots have their '_set_' methods defined here. Every
             '_set_' method should first store the input value in the relevant
             '_prop_' attribute to allow the configuration to be written to file.
-
             """
             _View.Plot.__init__(self, data, ax)
             sticks = self._Data.dat

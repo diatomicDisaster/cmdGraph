@@ -1,9 +1,9 @@
-import cmd #for program commands
-import argparse #for figure arguments
-import numpy as np #for... need I explain?
-import matplotlib #urm... seems kinda obvious
-import matplotlib.pyplot as plt #convenience
-import sys
+#import sys
+#import cmd #for program commands
+#import argparse #for figure arguments
+#import numpy as np #for... need I explain?
+#import matplotlib #urm... seems kinda obvious
+#import matplotlib.pyplot as plt #convenience
 
 from cmg.prompt import run
 
