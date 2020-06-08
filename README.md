@@ -21,10 +21,14 @@ The following Python 3 libraries are required to run the cmdGraph program:
 - numpy
 - matplotlib
 
-### Running the program
+#### Running the program
 
 To run as a standalone module, simply type the following into the command line:
 ```
 python3 cmdGraph
 ```
-This will open the matplotlib interactive plotting window and start the cmdGraph interactive prompt
+This will open the matplotlib interactive plotting window and start the cmdGraph interactive prompt.
+
+### Adding Data
+
+To plot data, we first need to select a plotting mode. There are currently two modes: `graph` and `stick`, the former is used for plotting conventional $`x, y`$
