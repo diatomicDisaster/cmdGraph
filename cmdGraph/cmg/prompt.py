@@ -173,8 +173,13 @@ class cmgPrompt(cmd.Cmd):
         calling it's write file method for the current View instance.
         
         """
+        if not inp:
+            if not hasattr(self, '_savefile'):
+                self._savefile = 'autosave.cmg'
+            inp = self._savefile
         cmgData(inp).write_file(self._View)
         self._changed = False
+        self._savefile = inp
     def help_save(self):
         print("usage: save <filename>\n    Save the current figure as <filename>.cmg, allows figures to be reload after exit.")
 
@@ -182,13 +187,13 @@ class cmgPrompt(cmd.Cmd):
         """Load a View instance from a cmdGraph 'save file' by initialising a
         cmdGraph data instance and calling it's read file method. Then pass
         each item in the data attribute as though it were a user command.
-        
         """
         buff = cmgData(inp).read_file()
         for cmdString in buff.dat:
             self.onecmd(cmdString)
         if self._single:
             self.do_exit('')
+        self._savefile = inp
     def help_load(self):
         print("usage: load <filename>.cmg\n    Load figure from cmdGraph file.")
 
@@ -196,9 +201,16 @@ class cmgPrompt(cmd.Cmd):
         """Rudimentary print figure to file. Redirects to plt.savefig(), the
         filetpye is automatically chosen from the suffix used in the input
         string, i.e '.pdf', '.jpg'.
-        
         """
         plt.savefig(inp)
+    def help_print(self):
+        print("usage print <filename>.<filetype>\n    Print figure to file.")
+
+    def do_tight(self, inp):
+        """Apply matplotlib tight_layout."""
+        plt.tight_layout()
+    def help_tight(self):
+        print("usage: tight\n    Apply tight layout.")
 
 def run():
     """Run the cmdGraph program."""

@@ -37,6 +37,7 @@ class _View:
         )
         self._add_arg('-xl', '--xlabel', nargs='+', type=str, metavar='str')
         self._add_arg('-yl', '--ylabel', nargs='+', type=str, metavar='str')
+        self._add_arg('-fs', '--figsize', nargs=2, type=str, metavar='float')
 
     def parse(self, inp):
         """Method for parsing arguments using the parser defined for the future
@@ -97,16 +98,18 @@ class _View:
         self.plots.append(plot)
         self.livePlots = self.plots
 
-    # def _set_xlabel(self, inp):
-    #     """Set x label for axis."""
-    #     self._prop_xlabel = inp
-    #     self.ax.set_xlabel(inp[0].replace('#', ' '))
-
-    # def _set_ylabel(self, inp):
-    #     """Set y label for axis."""
-    #     self._prop_ylabel = inp
-    #     self.ax.set_ylabel(inp[0].replace('#', ' '))
-
+    def _set_xlabel(self, inp):
+        """Set x label for axis."""
+        self._prop_xlabel = inp[0]
+        self.ax.set_xlabel(inp[0].replace('#', ' '))
+    def _set_ylabel(self, inp):
+        """Set y label for axis."""
+        self._prop_ylabel = inp[0]
+        self.ax.set_ylabel(inp[0].replace('#', ' '))
+    def _set_figsize(self, inp):
+        """Set figure size."""
+        self._prop_figsize = "{} {}".format(*inp)
+        self.fig.set_size_inches(float(inp[0]), float(inp[1]))
 
 class GraphView(_View):
     """Simple x-y data View class.
@@ -208,6 +211,8 @@ class GraphView(_View):
             plt.setp(self._plot, ls=inp)
         def _set_marker(self, inp):
             """Set marker style of plot."""
+            if inp == 'none':
+                inp = 'None'
             self._prop_marker = inp
             plt.setp(self._plot, marker=inp)
         def _set_markersize(self, inp):
@@ -218,20 +223,12 @@ class GraphView(_View):
         def _set_label(self, inp):
             """Set legend labels of plot."""
             self._prop_label = inp
-            if inp is 'none': #line has no label
+            if inp == 'none': #line has no label
                 plt.setp(self._plot, label='__nolegend__')
             else:
                 inp = inp.replace('#', ' ')
                 plt.setp(self._plot, label=inp)
             plt.legend()
-        def _set_xlabel(self, inp):
-            """Set x label for axis."""
-            self._prop_xlabel = inp
-            self.ax.set_xlabel(inp[0].replace('#', ' '))
-        def _set_ylabel(self, inp):
-            """Set y label for axis."""
-            self._prop_ylabel = inp
-            self.ax.set_ylabel(inp[0].replace('#', ' '))
 
     def add_plot(self, data):
         _View.add_plot(self, data)
@@ -256,11 +253,11 @@ class StickView(_View):
         self.ax = fig.add_subplot(111)
         self.ax.set_yscale('log')
         # Line arguments
-        self._add_arg('-lw', '--linewidth',  nargs='+', type=float, metavar='float', 
+        self._add_arg('-lw', '--linewidth', nargs='+', type=float, metavar='float',
             help="Width of plot line.")
         self._add_arg('-lc', '--linecolour', nargs='+', type=str,   metavar='str',
             help="line colours for plots in figure (any valid matplotlib colour, e.g 'red', 'blue')")
-        self._add_arg('-l',  '--label',      nargs='+', type=str,   metavar='str',
+        self._add_arg('-l', '--label', nargs='+', type=str,   metavar='str',
             help="labels for plots in figure legend, use '#' for spaces")
         # Axis arguments
         self._add_arg('-xr', '--xrange', nargs=2, type=str, metavar='float',
