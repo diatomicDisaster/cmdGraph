@@ -4,3 +4,7 @@
 # Vim swap files
 *.swp
 *.swo
+
+# Python
+**/__pycache__
+*.pyc

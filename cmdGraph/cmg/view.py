@@ -38,6 +38,8 @@ class _View:
         self._add_arg('-xl', '--xlabel', nargs='+', type=str, metavar='str')
         self._add_arg('-yl', '--ylabel', nargs='+', type=str, metavar='str')
         self._add_arg('-fs', '--figsize', nargs=2, type=str, metavar='float')
+        self._add_arg('-ys', '--yscale', nargs=1, type=str, metavar='str',
+                help="Set the scale of the y axis, e.g 'log', 'linear'")
 
     def parse(self, inp):
         """Method for parsing arguments using the parser defined for the future
@@ -110,6 +112,10 @@ class _View:
         """Set figure size."""
         self._prop_figsize = "{} {}".format(*inp)
         self.fig.set_size_inches(float(inp[0]), float(inp[1]))
+    def _set_yscale(self, inp):
+        """Set y scale."""
+        self._prop_yscale = inp[0]
+        self.ax.set_yscale(inp[0])
 
 class GraphView(_View):
     """Simple x-y data View class.
@@ -136,7 +142,7 @@ class GraphView(_View):
         self._add_arg('-m',  '--marker',     nargs='+', type=str,   metavar='str',
             help="marker styles for plots in figure (any valid matplotlib style, e.g 'o', 'x', 'none')")
         self._add_arg('-ms', '--markersize', nargs='+', type=str,   metavar='float',
-            help="marker sizes for plots in figure(any valid matplotlib style, e.g '-', '--', 'none')")
+            help="marker sizes for plots in figure (any valid matplotlib style, e.g '-', '--', 'none')")
         self._add_arg('-l',  '--label',      nargs='+', type=str,   metavar='str',
             help="labels for plots in figure legend, use '#' for spaces")
         # Axis arguments
@@ -203,6 +209,12 @@ class GraphView(_View):
             plt.setp(self._plot, linewidth=inp)
         def _set_linecolour(self, inp):
             """Set line colour of plot."""
+            try:
+                print(inp)
+                inp = tuple(float(i) for i in inp.split(','))
+                print(inp)
+            except:
+                pass
             self._prop_linecolour = inp
             plt.setp(self._plot, color=inp)
         def _set_linestyle(self, inp):
@@ -251,12 +263,18 @@ class StickView(_View):
         """
         _View.__init__(self, figure=fig, mode='stick')
         self.ax = fig.add_subplot(111)
-        self.ax.set_yscale('log')
+        #self.ax.set_yscale('log')
         # Line arguments
-        self._add_arg('-lw', '--linewidth', nargs='+', type=float, metavar='float',
+        self._add_arg('-lw', '--linewidth', nargs='+', type=str, metavar='float',
             help="Width of plot line.")
         self._add_arg('-lc', '--linecolour', nargs='+', type=str,   metavar='str',
             help="line colours for plots in figure (any valid matplotlib colour, e.g 'red', 'blue')")
+        self._add_arg('-ls', '--linestyle',  nargs='+', type=str,   metavar='str',
+            help="line styles for plots in figure (any valid matplotlib style, e.g '-', '--', 'none')")
+        self._add_arg('-m',  '--marker',     nargs='+', type=str,   metavar='str',
+            help="marker styles for plots in figure (any valid matplotlib style, e.g 'o', 'x', 'none')")
+        self._add_arg('-ms', '--markersize', nargs='+', type=str,   metavar='float',
+            help="marker sizes for plots in figure (any valid matplotlib style, e.g '-', '--', 'none')")
         self._add_arg('-l', '--label', nargs='+', type=str,   metavar='str',
             help="labels for plots in figure legend, use '#' for spaces")
         # Axis arguments
@@ -313,23 +331,63 @@ class StickView(_View):
             sticks = self._Data.dat
             self._plot = ax.add_collection(
                 matplotlib.collections.LineCollection(sticks))
+            self._markers = None
         # Line methods
         def _set_linewidth(self, inp):
             """Set line width of plot."""
             self._prop_linewidth = inp
+            if inp == 'none':
+                inp = '0'
             inp = float(inp)
             plt.setp(self._plot, linewidth=inp)
         def _set_linecolour(self, inp):
             """Set line colour of plot."""
+            try:
+                inp = tuple(float(i) for i in inp.split(','))
+            except:
+                pass
             self._prop_linecolour = inp
             plt.setp(self._plot, color=inp)
+        def _set_linestyle(self, inp):
+            """Set line style of plot."""
+            self._prop_linestyle = inp
+            if inp == 'none':
+                self._set_linewidth('none')
+                return
+            elif hasattr(self, '_prop_linewidth'):
+                if self._prop_linewidth == 'none':
+                    self._set_linewidth(1)
+            plt.setp(self._plot, ls=inp)
+        def _set_marker(self, inp):
+            """Set marker style of plot."""
+            self._prop_marker = inp
+            if inp == 'none':
+                if self._markers:
+                    self._markers.remove()
+                    self._markers = None
+                    return
+                else:
+                    return
+            elif not self._markers:
+                self._add_stick_markers()
+            plt.setp(self._markers, marker=inp)
+        def _set_markersize(self, inp):
+            """Set size of plot markers."""
+            self._prop_markersize = inp
+            inp = float(inp)
+            plt.setp(self._markers, ms=inp)
         def _set_label(self, inp):
             """Set legend labels of plot."""
             self._prop_label = inp
-            if inp is 'none': #line has no label
+            if inp == 'none': #line has no label
                 plt.setp(self._plot, label='__nolegend__')
             else:
                 inp = inp.replace('#', ' ')
                 plt.setp(self._plot, label=inp)
             plt.legend()
 
+        def _add_stick_markers(self):
+            "Plots scatter graph as markers for stick view"
+            self._markers, = plt.plot(self._Data.dat[:,1,0], self._Data.dat[:,1,1], 
+                                     linestyle='none', linewidth=0,
+                                     color=self._prop_linecolour)
