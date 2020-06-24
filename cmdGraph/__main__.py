@@ -1,4 +1,4 @@
-from cmg.prompt import run
+from cmdGraph.cmg import prompt
 
 welcome_message = """
     ==================================================================
@@ -27,4 +27,4 @@ welcome_message = """
 
 if __name__ == "__main__":
     print(welcome_message) #print welcome message
-    run()
+    prompt.run()

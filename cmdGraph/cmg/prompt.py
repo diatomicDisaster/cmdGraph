@@ -4,9 +4,10 @@ import numpy as np #for... need I explain?
 import matplotlib #urm... seems kinda obvious
 import matplotlib.pyplot as plt #convenience
 import sys
+import os
 
-from .data import *
-from .view import *
+from .data import xyData, stickData, cmgData, duoOutData, roueffData, detect_filetype
+from .view import GraphView, StickView, linelistComparisonView
 
 ### User interface object
 
@@ -33,7 +34,7 @@ class cmgPrompt(cmd.Cmd):
         plt.rc('text', usetex=True)
         plt.rc('font', family='serif')
         plt.ion()
-        self._modes = ['graph', 'stick'] #define available modes
+        self._modes = ['graph', 'stick', 'linelistComparison'] #define available modes
         if mode == 'launch': #for first __init__
             cmd.Cmd.__init__(self, **kwargs)
             mode = 'graph' #default to graph
@@ -42,11 +43,11 @@ class cmgPrompt(cmd.Cmd):
             self.fig = plt.figure()
             self._single = False
             if mode == 'graph':
-                self._DataType = xyData #set the data mode
                 self._View = GraphView(self.fig) #set the view mode
             elif mode == 'stick':
-                self._DataType = stickData
                 self._View = StickView(self.fig)
+            elif mode == 'linelistComparison':
+                self._View = linelistComparisonView(self.fig)
         else:
             print("Mode not defined.")
 
@@ -117,8 +118,9 @@ class cmgPrompt(cmd.Cmd):
         
         """
         for inFile in inp.split(): #assume spaces in input delimit files
-            _Data = self._DataType(inFile).read_file()
-            self._View.add_plot(_Data)
+            fileType = detect_filetype(inFile) #detect data type
+            _Data = fileType(inFile).read_file() #read input file and return data object
+            self._View.add_plot(_Data) #call view mode add plot function
     def help_adat(self):
         print("usage: adat <file1> <file2> ... \n    Add lines(s) to figure from file(s). ")
 
@@ -175,7 +177,10 @@ class cmgPrompt(cmd.Cmd):
         """
         if not inp:
             if not hasattr(self, '_savefile'):
-                self._savefile = 'autosave.cmg'
+                i = 1
+                while os.path.isfile("./autosave{0}.cmg".format(i)):
+                    i +=1
+                self._savefile = "autosave{0}.cmg".format(i)
             inp = self._savefile
         cmgData(inp).write_file(self._View)
         self._changed = False
@@ -202,6 +207,13 @@ class cmgPrompt(cmd.Cmd):
         filetpye is automatically chosen from the suffix used in the input
         string, i.e '.pdf', '.jpg'.
         """
+        if not inp:
+            if not hasattr(self, '_printfile'):
+                i = 1
+                while os.path.isfile("./autoprint{0}.pdf".format(i)):
+                    i +=1
+                self._printfile = "autoprint{0}.pdf".format(i)
+            inp = self._printfile
         plt.savefig(inp)
     def help_print(self):
         print("usage print <filename>.<filetype>\n    Print figure to file.")

@@ -4,6 +4,7 @@ import numpy as np #for... need I explain?
 import matplotlib #urm... seems kinda obvious
 import matplotlib.pyplot as plt #convenience
 import sys
+import pandas as pd
 
 _small_ = 1e-300
 
@@ -12,6 +13,7 @@ _small_ = 1e-300
 class _Data:
     def __init__(self, filename):
         self.fName = filename
+        self.dat = None
 
 class xyData(_Data):
     """Data format for two column x, y data files where each row is a data point.
@@ -27,7 +29,10 @@ class xyData(_Data):
         return self
 
 class stickData(_Data):
+    """Data format for stick spectra. Input file with two columns of x positions and
+    stick height is converted into a set of lines for matplotlib LineCollection."""
     def read_file(self):
+        """Read wavenumber, intensity columns from file"""
         with open(self.fName, 'r') as f:
             datLines = []
             ymin = ymax = 0
@@ -120,3 +125,109 @@ class cmgData(_Data):
         else:
             self.dat = datLines
         return self
+
+class duoOutData(_Data):
+    """Data format for reading transition data from Duo '.out' files. Automatically
+    locates and extracts the transitions data from the Einstein coefficients and
+    linestrengths section of the output file. Returns a numpy array of relevant values."""
+    def read_file(self):
+        """Read linelist from Duo output file."""
+        header = "    J Gamma <-   J  Gamma Typ       Ei     <-      Ef          nu_if        S(f<-i)          A(if)            I(f<-i)       State v lambda sigma  omega <- State v lambda sigma  omega "
+        with open(self.fName, 'r') as f:
+            datLines = []
+            atBlock = False
+            l = 0
+            while True:
+                l += 1
+                line = f.readline().rstrip('\n')
+                if line == header:
+                    atBlock = True
+                    continue
+                if atBlock and line:
+                    if line == "done":
+                        break
+                    line = line.replace('<-', '').replace('(', '').replace(')', '')
+                    datLines.append(
+                        line.replace('<-', '').replace('(', '').replace(')', '').split()
+                        ) #remove non-data columns
+        self.dat = np.array(datLines)
+        self.cols = [
+            'rotational_final',
+            'gamma_final',
+            'rotational_initial',
+            'gamma_initial',
+            'transition_branch',
+            'energy_final_cm',
+            'energy_initial_cm',
+            'wavenumber',
+            'linestrength_S',
+            'einstein_A',
+            'intensity_I',
+            'electronic_final',
+            'vibrational_final',
+            'lambda_final',
+            'sigma_final',
+            'omega_final',
+            'electronic_initial',
+            'vibrational_initial',
+            'lambda_initial',
+            'sigma_initial',
+            'omega_initial'
+            ]
+        self.typedict = {key: float for key in self.cols}
+        self.typedict.update({'gamma_initial': str, 'gamma_final': str, 'transition_branch': str})
+        return self
+
+class roueffData(_Data):
+    """Data format for linelist in the format given by Roueff et al. 2019."""
+    def read_file(self):
+        """Read linelist from Komasa format."""
+        with open(self.fName, 'r') as f:
+            datLines = []
+            while True:
+                line = f.readline().rstrip('\n')
+                if line:
+                    datLines.append(line.split())
+                else:
+                    break
+        i = input("Select E2 (0), M1 (1) or both (2) lines: ")
+        choose = [8, 9, 10]
+        self.dat = np.array(datLines)[:, [*range(8), choose[int(i)], *range(12,16)]]
+        self.cols = [
+            'vibrational_final',
+            'rotational_final',
+            'vibrational_initial',
+            'rotational_initial',
+            'wavenumber',
+            'wavenumber_error',
+            'wavelength',
+            'wavelength_error',
+            'einstein_A',
+            'energy_final_cm',
+            'energy_final_error',
+            'energy_final_kelvin',
+            'g_factor_final'
+            ]
+        self.typedict = {
+            key: float for key in self.cols
+            }
+        return self
+        
+def detect_filetype(fName):
+    pref, suf = fName.split('.')
+    if suf == 'stick':
+        return stickData
+    elif suf == 'out':
+        return duoOutData
+    elif suf == 'cmg':
+        return cmgData
+    elif suf == 'txt':
+        f = open(fName, 'r')
+        firstLine = f.readline()
+        if len(firstLine.split()) == 2:
+            return xyData
+        elif len(firstLine.split()) == 16:
+            return roueffData
+    else:
+        print("File type not recognised")
+

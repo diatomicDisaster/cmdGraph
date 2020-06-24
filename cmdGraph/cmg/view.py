@@ -3,7 +3,10 @@ import argparse #for figure arguments
 import numpy as np #for... need I explain?
 import matplotlib #urm... seems kinda obvious
 import matplotlib.pyplot as plt #convenience
+import pandas as pd
 import sys
+
+from .data import xyData, stickData, cmgData, duoOutData, roueffData, detect_filetype
 
 
 ### View Classes
@@ -40,6 +43,11 @@ class _View:
         self._add_arg('-fs', '--figsize', nargs=2, type=str, metavar='float')
         self._add_arg('-ys', '--yscale', nargs=1, type=str, metavar='str',
                 help="Set the scale of the y axis, e.g 'log', 'linear'")
+        self._add_arg('-xr', '--xrange', nargs=2, type=str, metavar='float',
+            help="min and max range of figure x-axis, use * * to automatically choose value")
+        self._add_arg('-yr', '--yrange', nargs=2, type=str, metavar='float',
+            help="min and max range of figure y-axis, use * * to automatically choose value")
+
 
     def parse(self, inp):
         """Method for parsing arguments using the parser defined for the future
@@ -96,9 +104,9 @@ class _View:
         a given Data object. Adds plot to list of plots in current View and resets
         live plots. Assumes plot is being added to current matplotlib axes.
         """
-        plot = self.Plot(data, plt.gca())
-        self.plots.append(plot)
-        self.livePlots = self.plots
+        plot = self.Plot(data, plt.gca()) #plot object init method creates matplotlib artist
+        self.plots.append(plot) #add to list of plots
+        self.livePlots = self.plots #update live plots
 
     def _set_xlabel(self, inp):
         """Set x label for axis."""
@@ -116,6 +124,31 @@ class _View:
         """Set y scale."""
         self._prop_yscale = inp[0]
         self.ax.set_yscale(inp[0])
+    # Axes methods
+    def _set_xrange(self, inp):
+        """Set the x range of axis. If an asteriks is detected in place of a
+        float for either value then that bound is autoscaled.
+        """
+        inp = inp.split() if type(inp) is str else inp
+        self._prop_xrange = "{} {}".format(*inp)
+        if any([i == '*' for i in inp]):
+            self.ax.autoscale(enable=True, axis='x')
+        if inp[0] != '*':
+            self.ax.set_xlim(xmin=float(inp[0]))
+        if inp[1] != '*':
+            self.ax.set_xlim(xmax=float(inp[1]))
+    def _set_yrange(self, inp):
+        """Set the y range of axis. If an asteriks is detected in place of a
+        float for either value then that bound is autoscaled.
+        """
+        inp = inp.split() if type(inp) is str else inp
+        self._prop_yrange = "{} {}".format(*inp)
+        if any([i == '*' for i in inp]):
+            self.ax.autoscale(enable=True, axis='y')
+        if inp[0] != '*':
+            self.ax.set_ylim(ymin=float(inp[0]))
+        if inp[1] != '*':
+            self.ax.set_ylim(ymax=float(inp[1]))
 
 class GraphView(_View):
     """Simple x-y data View class.
@@ -145,41 +178,10 @@ class GraphView(_View):
             help="marker sizes for plots in figure (any valid matplotlib style, e.g '-', '--', 'none')")
         self._add_arg('-l',  '--label',      nargs='+', type=str,   metavar='str',
             help="labels for plots in figure legend, use '#' for spaces")
-        # Axis arguments
-        self._add_arg('-xr', '--xrange', nargs=2, type=str, metavar='float',
-            help="min and max range of figure x-axis, use * * to automatically choose value")
-        self._add_arg('-yr', '--yrange', nargs=2, type=str, metavar='float',
-            help="min and max range of figure y-axis, use * * to automatically choose value")
         # Note: argparse does not always handle more exotic variable types and
         # uses in the expected manner. As a result we prefer to use either float
         # or int values, and parse arrays, tuples etc. as multiple arguments, or
         # booleans as strings.
-
-    # Axes methods
-    def _set_xrange(self, inp):
-        """Set the x range of axis. If an asteriks is detected in place of a
-        float for either value then that bound is autoscaled.
-        """
-        inp = inp.split() if type(inp) is str else inp
-        self._prop_xrange = "{} {}".format(*inp)
-        if any([i == '*' for i in inp]):
-            self.ax.autoscale(enable=True, axis='x')
-        if inp[0] != '*':
-            self.ax.set_xlim(xmin=float(inp[0]))
-        if inp[1] != '*':
-            self.ax.set_xlim(xmax=float(inp[1]))
-    def _set_yrange(self, inp):
-        """Set the y range of axis. If an asteriks is detected in place of a
-        float for either value then that bound is autoscaled.
-        """
-        inp = inp.split() if type(inp) is str else inp
-        self._prop_yrange = "{} {}".format(*inp)
-        if any([i == '*' for i in inp]):
-            self.ax.autoscale(enable=True, axis='y')
-        if inp[0] != '*':
-            self.ax.set_ylim(ymin=float(inp[0]))
-        if inp[1] != '*':
-            self.ax.set_ylim(ymax=float(inp[1]))
 
     # View Plot objects
     class Plot(_View.Plot):
@@ -277,41 +279,11 @@ class StickView(_View):
             help="marker sizes for plots in figure (any valid matplotlib style, e.g '-', '--', 'none')")
         self._add_arg('-l', '--label', nargs='+', type=str,   metavar='str',
             help="labels for plots in figure legend, use '#' for spaces")
-        # Axis arguments
-        self._add_arg('-xr', '--xrange', nargs=2, type=str, metavar='float',
-            help="min and max range of figure x-axis, use * * to automatically choose value")
-        self._add_arg('-yr', '--yrange', nargs=2, type=str, metavar='float',
-            help="min and max range of figure y-axis, use * * to automatically choose value")
         # Note: argparse does not always handle more exotic variable types and
         # uses in the expected manner. As a result we prefer to use either float
         # or int values, and parse arrays, tuples etc. as multiple arguments, or
         # booleans as strings.
-    # Axes methods
-    def _set_xrange(self, inp):
-        """Set the x range of axis. If an asteriks is detected in place of a
-        float for either value then that bound is autoscaled.
-        """
-        inp = inp.split() if type(inp) is str else inp
-        self._prop_xrange = "{} {}".format(*inp)
-        if any([i == '*' for i in inp]):
-            self.ax.autoscale(enable=True, axis='x')
-        if inp[0] != '*':
-            self.ax.set_xlim(xmin=float(inp[0]))
-        if inp[1] != '*':
-            self.ax.set_xlim(xmax=float(inp[1]))
-    def _set_yrange(self, inp):
-        """Set the y range of axis. If an asteriks is detected in place of a
-        float for either value then that bound is autoscaled.
-        """
-        inp = inp.split() if type(inp) is str else inp
-        self._prop_yrange = "{} {}".format(*inp)
-        if any([i == '*' for i in inp]):
-            self.ax.autoscale(enable=True, axis='y')
-        if inp[0] != '*':
-            self.ax.set_ylim(ymin=float(inp[0]))
-        if inp[1] != '*':
-            self.ax.set_ylim(ymax=float(inp[1]))
-
+    
     # View Plot objects
     class Plot(_View.Plot):
         """The Plot object for the GraphView class. Called by cmdPrompt to
@@ -391,3 +363,96 @@ class StickView(_View):
             self._markers, = plt.plot(self._Data.dat[:,1,0], self._Data.dat[:,1,1], 
                                      linestyle='none', linewidth=0,
                                      color=self._prop_linecolour)
+
+class linelistComparisonView(_View):
+    def __init__(self, fig):
+        _View.__init__(self, figure=fig, mode='resids')
+        self.ax = fig.add_subplot(111)
+        #Line arguments
+        self._add_arg('-lc', '--linecolour', nargs='+', type=str,   metavar='str',
+            help="line colours for plots in figure (any valid matplotlib colour, e.g 'red', 'blue')")
+        self._add_arg('-m',  '--marker',     nargs='+', type=str,   metavar='str',
+            help="marker styles for plots in figure (any valid matplotlib style, e.g 'o', 'x', 'none')")
+        self._add_arg('-ms', '--markersize', nargs='+', type=str,   metavar='float',
+            help="marker sizes for plots in figure (any valid matplotlib style, e.g '-', '--', 'none')")
+        self._add_arg('-l', '--label', nargs='+', type=str,   metavar='str',
+            help="labels for plots in figure legend, use '#' for spaces")
+    
+    class Plot(_View.Plot):
+        def __init__(self, data, ax):
+            _View.Plot.__init__(self, data, ax) #store data and ax locally as self.data & self.ax
+            
+            # Ask for second linelist file to compare to
+            secFile       = input('Linelist file to compare to: ')
+            fType         = detect_filetype(secFile)
+            self._secData = fType(secFile).read_file()
+            
+            # Convert data to pandas dataframe for easy merging
+            mergers = [
+                'rotational_final', 'rotational_initial', 
+                'vibrational_final', 'vibrational_initial'
+                ] #column headers to merge on
+            self._dfPrim = pd.DataFrame(
+                data=self._Data.dat, columns=self._Data.cols
+                ).astype(self._Data.typedict)
+            self._dfSec = pd.DataFrame(
+                data=self._secData.dat, columns=self._secData.cols
+                ).astype(self._secData.typedict)
+            self._dfPrim.insert(0, 'line_number', 
+                np.arange(1, self._dfPrim.shape[0]+1)
+                ) #add column with index of line in original file
+            self._dfSec.insert(0, 'line_number', 
+                np.arange(1, self._dfSec.shape[0]+1)
+                )
+            # Merge on shortest linelist to minimise surplus lines
+            short = 'right' if self._dfSec.shape[0] < self._dfPrim.shape[0] else 'left'
+            self.dfComp = self._dfPrim.merge(self._dfSec, on=mergers, how=short)
+            # Print merge details
+            print("{0} has {1} entries; {2} has {3}. Matched {4} entries"
+                .format(
+                self._Data.fName, self._dfPrim.shape[0], secFile, 
+                self._dfSec.shape[0], self.dfComp.shape[0]
+                ))
+            self._set_compareon(
+                input("Merged, select quantity to compare on: ")
+            )
+        
+        def _set_compareon(self, inp):
+            """Select quantity to compare lines on."""
+            if hasattr(self, '_plot'):
+                self._plot.remove()
+            if inp in ['A', 'einstein']:
+                #pd.set_option('display.max_rows', 50000, 'display.max_columns', 100, 'display.width', 1000)
+                #fOut = open('garbage.txt', 'w')
+                #print(self.dfComp, file=fOut)
+                yVals = self.dfComp['einstein_A_x']/self.dfComp['einstein_A_y']
+            elif inp in ['nu', 'wavenumber']:
+                yVals = self.dfComp['wavenumber_x'] - self.dfComp['wavenumber_y']
+            else:
+                print("Comparison not recognised.")
+            xVals = self.dfComp['energy_final_cm_x']
+            self._plot, = plt.plot(xVals, yVals, ls='none')
+
+        def _set_linecolour(self, inp):
+            """Set line colour of plot."""
+            try:
+                print(inp)
+                inp = tuple(float(i) for i in inp.split(','))
+                print(inp)
+            except:
+                pass
+            self._prop_linecolour = inp
+            plt.setp(self._plot, color=inp)
+        def _set_marker(self, inp):
+            """Set marker style of plot."""
+            if inp == 'none':
+                inp = 'None'
+            self._prop_marker = inp
+            plt.setp(self._plot, marker=inp)
+        def _set_markersize(self, inp):
+            """Set size of plot markers."""
+            self._prop_markersize = inp
+            inp = float(inp)
+            plt.setp(self._plot, ms=inp)
+
+
